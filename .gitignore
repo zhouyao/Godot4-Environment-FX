@@ -1,0 +1,25 @@
+# Godot 4+ 引擎元数据与导入缓存
+.godot/
+
+# 导出的游戏包（可执行文件 / 压缩包 / pck）
+export/
+build/
+*.pck
+*.exe
+*.app/
+*.dmg
+*.zip
+
+# Mono / C# 相关（本项目为纯 GDScript，保留以防扩展）
+.mono/
+data_*/
+mono_crash.*.json
+
+# 编辑器 / 系统临时文件
+*.tmp
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini
