@@ -41,7 +41,7 @@ func _build_ui() -> void:
 	margin.add_child(vbox)
 
 	_add_title(vbox, "环境特效演示")
-	_add_hint(vbox, "WASD / 方向键 移动角色。走进右侧雾区触发淡入。")
+	_add_hint(vbox, "WASD / 方向键 移动角色。右侧雾区常驻显示；勾选「玩家进入淡入」后，走进去会再淡入到满。")
 
 	# —— 全局氛围雾 ——
 	_add_checkbox(vbox, "氛围雾（全屏）", true, func(v: bool) -> void: fog_ambient.visible = v)

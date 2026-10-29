@@ -327,15 +327,24 @@ func _apply_player_zone() -> void:
 	_player_zone.visible = activate_with_player
 	if not Engine.is_editor_hint():
 		_set_fog_alpha(0.0 if activate_with_player else 1.0)
+		# 运行中途切换 activate_with_player 时（尤其从关到开），body_entered
+		# 不会因玩家已在区域内而重新触发，需立即按当前重叠状态对齐初始透明度，
+		# 否则雾会卡在透明、直到玩家先出区再入区才出现。
+		if is_inside_tree():
+			_sync_with_overlaps.call_deferred()
 
 
 func _on_body_entered(body: Node) -> void:
+	if not activate_with_player:
+		return
 	if body != null and body.is_in_group("player"):
 		player_entered.emit(self, body)
 		_fade_to(1.0)
 
 
 func _on_body_exited(body: Node) -> void:
+	if not activate_with_player:
+		return
 	if body != null and body.is_in_group("player"):
 		player_exited.emit(self, body)
 		_fade_to(0.0)
