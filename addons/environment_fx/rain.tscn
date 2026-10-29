@@ -1,0 +1,168 @@
+[gd_scene format=3 uid="uid://dh324tslddcd4"]
+
+[ext_resource type="Script" path="res://addons/environment_fx/rain.gd" id="1_rain"]
+[ext_resource type="Shader" path="res://addons/environment_fx/rain.gdshader" id="2_shader"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_mask"]
+noise_type = 2
+frequency = 0.0025
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_mask"]
+noise = SubResource("FastNoiseLite_mask")
+seamless = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_gm5s5"]
+resource_local_to_scene = true
+shader = ExtResource("2_shader")
+shader_parameter/rain_color = Color(0.72, 0.82, 1, 1)
+shader_parameter/density = 0.06
+shader_parameter/speed = Vector2(0, 1)
+shader_parameter/thickness = 0.9
+shader_parameter/region_enabled = false
+shader_parameter/region_min = Vector2(-960, -540)
+shader_parameter/region_max = Vector2(960, 540)
+shader_parameter/region_fade = 400.0
+shader_parameter/elliptical = false
+shader_parameter/mask_noise_texture = SubResource("NoiseTexture2D_mask")
+shader_parameter/cloud_noise_scale = 0.0016
+shader_parameter/coverage = 0.18
+shader_parameter/softness = 0.2
+shader_parameter/edge_noise = 320.0
+shader_parameter/edge_seed = 0.0
+shader_parameter/density_variation = 0.3
+shader_parameter/edge_margin = 0.04
+shader_parameter/edge_gamma = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_573gv"]
+resource_local_to_scene = true
+shader = ExtResource("2_shader")
+shader_parameter/rain_color = Color(0.72, 0.82, 1, 1)
+shader_parameter/density = 0.06
+shader_parameter/speed = Vector2(0, 1)
+shader_parameter/thickness = 0.9
+shader_parameter/region_enabled = false
+shader_parameter/region_min = Vector2(-960, -540)
+shader_parameter/region_max = Vector2(960, 540)
+shader_parameter/region_fade = 400.0
+shader_parameter/elliptical = false
+shader_parameter/mask_noise_texture = SubResource("NoiseTexture2D_mask")
+shader_parameter/cloud_noise_scale = 0.0016
+shader_parameter/coverage = 0.18
+shader_parameter/softness = 0.2
+shader_parameter/edge_noise = 320.0
+shader_parameter/edge_seed = 0.41
+shader_parameter/density_variation = 0.3
+shader_parameter/edge_margin = 0.04
+shader_parameter/edge_gamma = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_xr1rt"]
+resource_local_to_scene = true
+shader = ExtResource("2_shader")
+shader_parameter/rain_color = Color(0.72, 0.82, 1, 1)
+shader_parameter/density = 0.06
+shader_parameter/speed = Vector2(0, 1)
+shader_parameter/thickness = 0.9
+shader_parameter/region_enabled = false
+shader_parameter/region_min = Vector2(-960, -540)
+shader_parameter/region_max = Vector2(960, 540)
+shader_parameter/region_fade = 400.0
+shader_parameter/elliptical = false
+shader_parameter/mask_noise_texture = SubResource("NoiseTexture2D_mask")
+shader_parameter/cloud_noise_scale = 0.0016
+shader_parameter/coverage = 0.18
+shader_parameter/softness = 0.2
+shader_parameter/edge_noise = 320.0
+shader_parameter/edge_seed = 0.82
+shader_parameter/density_variation = 0.3
+shader_parameter/edge_margin = 0.04
+shader_parameter/edge_gamma = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bkwo6"]
+resource_local_to_scene = true
+shader = ExtResource("2_shader")
+shader_parameter/rain_color = Color(0.72, 0.82, 1, 1)
+shader_parameter/density = 0.06
+shader_parameter/speed = Vector2(0, 1)
+shader_parameter/thickness = 0.9
+shader_parameter/region_enabled = false
+shader_parameter/region_min = Vector2(-960, -540)
+shader_parameter/region_max = Vector2(960, 540)
+shader_parameter/region_fade = 400.0
+shader_parameter/elliptical = false
+shader_parameter/mask_noise_texture = SubResource("NoiseTexture2D_mask")
+shader_parameter/cloud_noise_scale = 0.0016
+shader_parameter/coverage = 0.18
+shader_parameter/softness = 0.2
+shader_parameter/edge_noise = 320.0
+shader_parameter/edge_seed = 1.23
+shader_parameter/density_variation = 0.3
+shader_parameter/edge_margin = 0.04
+shader_parameter/edge_gamma = 1.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_zone"]
+size = Vector2(1920, 1080)
+
+[node name="Rain" type="Node2D"]
+script = ExtResource("1_rain")
+density = 0.06
+thickness = 0.9
+
+[node name="Layers" type="Node2D" parent="."]
+
+[node name="Layer_1" type="Parallax2D" parent="Layers"]
+repeat_size = Vector2(4800, 2700)
+
+[node name="ColorRect" type="ColorRect" parent="Layers/Layer_1"]
+material = SubResource("ShaderMaterial_gm5s5")
+offset_left = -2400.0
+offset_top = -1350.0
+offset_right = 2400.0
+offset_bottom = 1350.0
+mouse_filter = 2
+
+[node name="Layer_2" type="Parallax2D" parent="Layers"]
+visible = false
+repeat_size = Vector2(4800, 2700)
+
+[node name="ColorRect" type="ColorRect" parent="Layers/Layer_2"]
+material = SubResource("ShaderMaterial_573gv")
+offset_left = -2400.0
+offset_top = -1350.0
+offset_right = 2400.0
+offset_bottom = 1350.0
+mouse_filter = 2
+
+[node name="Layer_3" type="Parallax2D" parent="Layers"]
+visible = false
+repeat_size = Vector2(4800, 2700)
+
+[node name="ColorRect" type="ColorRect" parent="Layers/Layer_3"]
+material = SubResource("ShaderMaterial_xr1rt")
+offset_left = -2400.0
+offset_top = -1350.0
+offset_right = 2400.0
+offset_bottom = 1350.0
+mouse_filter = 2
+
+[node name="Layer_4" type="Parallax2D" parent="Layers"]
+visible = false
+repeat_size = Vector2(4800, 2700)
+
+[node name="ColorRect" type="ColorRect" parent="Layers/Layer_4"]
+material = SubResource("ShaderMaterial_bkwo6")
+offset_left = -2400.0
+offset_top = -1350.0
+offset_right = 2400.0
+offset_bottom = 1350.0
+mouse_filter = 2
+
+[node name="PlayerZone" type="Area2D" parent="."]
+visible = false
+collision_layer = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlayerZone"]
+shape = SubResource("RectangleShape2D_zone")
+debug_color = Color(1, 0.55, 0.1, 0.25)

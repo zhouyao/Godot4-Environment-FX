@@ -1,15 +1,15 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bhhpmyt05oc60"]
 
-[ext_resource type="Script" path="res://scenes/demo/demo_controller.gd" id="1_ctrl"]
+[ext_resource type="Script" uid="uid://c1orxfeb60161" path="res://scenes/demo/rain_controller.gd" id="1_ctrl"]
 [ext_resource type="PackedScene" path="res://scenes/demo/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" path="res://addons/environment_fx/fog.tscn" id="3_fog"]
+[ext_resource type="PackedScene" uid="uid://dh324tslddcd4" path="res://addons/environment_fx/rain.tscn" id="3_rain"]
 
-[node name="World" type="Node2D"]
+[node name="World" type="Node2D" unique_id=861429909]
 script = ExtResource("1_ctrl")
 
-[node name="Background" type="Node2D" parent="."]
+[node name="Background" type="Node2D" parent="." unique_id=1357567546]
 
-[node name="BgColor" type="ColorRect" parent="Background"]
+[node name="BgColor" type="ColorRect" parent="Background" unique_id=1614518315]
 z_index = -10
 offset_left = -3000.0
 offset_top = -2000.0
@@ -17,132 +17,117 @@ offset_right = 3000.0
 offset_bottom = 2000.0
 color = Color(0.09, 0.12, 0.2, 1)
 
-[node name="Scenery_1" type="ColorRect" parent="Background"]
-position = Vector2(-1200, -300)
+[node name="Scenery_1" type="ColorRect" parent="Background" unique_id=739734962]
 offset_left = -40.0
 offset_top = -60.0
 offset_right = 40.0
 offset_bottom = 60.0
 color = Color(0.18, 0.42, 0.28, 1)
 
-[node name="Scenery_2" type="ColorRect" parent="Background"]
-position = Vector2(-800, 220)
+[node name="Scenery_2" type="ColorRect" parent="Background" unique_id=1036603753]
 offset_left = -50.0
 offset_top = -30.0
 offset_right = 50.0
 offset_bottom = 30.0
 color = Color(0.4, 0.3, 0.2, 1)
 
-[node name="Scenery_3" type="ColorRect" parent="Background"]
-position = Vector2(-400, -400)
+[node name="Scenery_3" type="ColorRect" parent="Background" unique_id=1972881717]
 offset_left = -30.0
 offset_top = -45.0
 offset_right = 30.0
 offset_bottom = 45.0
 color = Color(0.2, 0.45, 0.3, 1)
 
-[node name="Scenery_4" type="ColorRect" parent="Background"]
-position = Vector2(0, 360)
+[node name="Scenery_4" type="ColorRect" parent="Background" unique_id=54342251]
 offset_left = -60.0
 offset_top = -20.0
 offset_right = 60.0
 offset_bottom = 20.0
 color = Color(0.38, 0.28, 0.2, 1)
 
-[node name="Scenery_5" type="ColorRect" parent="Background"]
-position = Vector2(400, -300)
+[node name="Scenery_5" type="ColorRect" parent="Background" unique_id=1276547065]
 offset_left = -45.0
 offset_top = -65.0
 offset_right = 45.0
 offset_bottom = 65.0
 color = Color(0.19, 0.44, 0.29, 1)
 
-[node name="Scenery_6" type="ColorRect" parent="Background"]
-position = Vector2(900, 250)
+[node name="Scenery_6" type="ColorRect" parent="Background" unique_id=1090857833]
 offset_left = -35.0
 offset_top = -50.0
 offset_right = 35.0
 offset_bottom = 50.0
 color = Color(0.2, 0.46, 0.3, 1)
 
-[node name="Scenery_7" type="ColorRect" parent="Background"]
-position = Vector2(1300, -200)
+[node name="Scenery_7" type="ColorRect" parent="Background" unique_id=284409919]
 offset_left = -55.0
 offset_top = -30.0
 offset_right = 55.0
 offset_bottom = 30.0
 color = Color(0.4, 0.3, 0.2, 1)
 
-[node name="Scenery_8" type="ColorRect" parent="Background"]
-position = Vector2(-1400, 300)
+[node name="Scenery_8" type="ColorRect" parent="Background" unique_id=1252420484]
 offset_left = -50.0
 offset_top = -40.0
 offset_right = 50.0
 offset_bottom = 40.0
 color = Color(0.18, 0.43, 0.28, 1)
 
-[node name="Scenery_9" type="ColorRect" parent="Background"]
-position = Vector2(600, 400)
+[node name="Scenery_9" type="ColorRect" parent="Background" unique_id=284560962]
 offset_left = -40.0
 offset_top = -40.0
 offset_right = 40.0
 offset_bottom = 40.0
 color = Color(0.2, 0.45, 0.3, 1)
 
-[node name="Scenery_10" type="ColorRect" parent="Background"]
-position = Vector2(-200, -520)
+[node name="Scenery_10" type="ColorRect" parent="Background" unique_id=966014373]
 offset_left = -35.0
 offset_top = -35.0
 offset_right = 35.0
 offset_bottom = 35.0
 color = Color(0.4, 0.3, 0.2, 1)
 
-[node name="Scenery_11" type="ColorRect" parent="Background"]
-position = Vector2(1100, 460)
+[node name="Scenery_11" type="ColorRect" parent="Background" unique_id=777668436]
 offset_left = -45.0
 offset_top = -25.0
 offset_right = 45.0
 offset_bottom = 25.0
 color = Color(0.4, 0.3, 0.2, 1)
 
-[node name="Scenery_12" type="ColorRect" parent="Background"]
-position = Vector2(1500, 100)
+[node name="Scenery_12" type="ColorRect" parent="Background" unique_id=1717008764]
 offset_left = -40.0
 offset_top = -60.0
 offset_right = 40.0
 offset_bottom = 60.0
 color = Color(0.19, 0.44, 0.29, 1)
 
-[node name="Scenery_13" type="ColorRect" parent="Background"]
-position = Vector2(-1000, 460)
+[node name="Scenery_13" type="ColorRect" parent="Background" unique_id=2142293567]
 offset_left = -30.0
 offset_top = -30.0
 offset_right = 30.0
 offset_bottom = 30.0
 color = Color(0.2, 0.45, 0.3, 1)
 
-[node name="Scenery_14" type="ColorRect" parent="Background"]
-position = Vector2(300, -460)
+[node name="Scenery_14" type="ColorRect" parent="Background" unique_id=1570389232]
 offset_left = -50.0
 offset_top = -25.0
 offset_right = 50.0
 offset_bottom = 25.0
 color = Color(0.4, 0.3, 0.2, 1)
 
-[node name="Player" parent="." instance=ExtResource("2_player")]
-position = Vector2(0, 0)
+[node name="Player" parent="." unique_id=1690366626 instance=ExtResource("2_player")]
 
-[node name="FogAmbient" parent="." instance=ExtResource("3_fog")]
+[node name="RainAmbient" parent="." unique_id=1304478130 instance=ExtResource("3_rain")]
+z_index = -5
 density = 0.05
 draw_z = -5
 
-[node name="FogZone" parent="." instance=ExtResource("3_fog")]
+[node name="RainZone" parent="." unique_id=1251827319 instance=ExtResource("3_rain")]
+z_index = 100
 position = Vector2(500, 0)
 size = Vector2(900, 700)
 region_enabled = true
 elliptical = true
-activate_with_player = false
 density = 0.28
-fade_duration = 1.0
 layer_scales = Array[Vector2]([Vector2(0.85, 0.85), Vector2(1, 1), Vector2(1.15, 1.15), Vector2(1.3, 1.3)])
 draw_z = 100
