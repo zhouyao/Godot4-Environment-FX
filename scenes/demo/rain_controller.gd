@@ -52,7 +52,7 @@ func _build_ui() -> void:
 
 	var panel := Panel.new()
 	panel.position = Vector2(16, 16)
-	panel.size = Vector2(330, 650)
+	panel.size = Vector2(330, 1000)
 	layer.add_child(panel)
 
 	var back_button := Button.new()

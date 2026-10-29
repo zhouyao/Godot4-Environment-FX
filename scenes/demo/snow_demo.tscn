@@ -120,13 +120,14 @@ color = Color(0.4, 0.3, 0.2, 1)
 [node name="SnowAmbient" parent="." unique_id=2011046308 instance=ExtResource("3_snow")]
 visible = false
 z_index = -5
+region_enabled = false
 softness = 0.7
 chaos = 0.6
 draw_z = -5
 
 [node name="SnowZone" parent="." unique_id=1256955560 instance=ExtResource("3_snow")]
 z_index = 100
-size = Vector2(900, 700)
+size = Vector2(800, 800)
 elliptical = true
 layer_scales = Array[Vector2]([Vector2(0.9, 0.9), Vector2(1.1, 1.1)])
 draw_z = 100
