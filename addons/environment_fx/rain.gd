@@ -40,7 +40,7 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## true = 椭圆包络（没有直边和直角），false = 矩形包络。
-@export var elliptical: bool = false:
+@export var elliptical: bool = true:
 	set(value):
 		elliptical = value
 		_apply_region()
