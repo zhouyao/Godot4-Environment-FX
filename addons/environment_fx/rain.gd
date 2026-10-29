@@ -1,6 +1,6 @@
 @tool
 extends Node2D
-class_name Rain
+class_name RainParallax2D
 
 ## 玩家进入区域时发出（仅在 activate_with_player 打开时才会检测）。
 signal player_entered(zone: Node, player: Node2D)
@@ -38,15 +38,21 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 覆盖率：落雨的列占比。0 = 无雨，1 = 全部列落雨。
-@export var coverage: float = 0.18:
+@export var coverage: float = 0.32:
 	set(value):
 		coverage = value
 		_apply_density()
 
 ## 雨丝柔和度：越大雨丝边缘越朦胧。
-@export var softness: float = 0.2:
+@export var softness: float = 1.0:
 	set(value):
 		softness = value
+		_apply_density()
+
+## 拖影长度倍率（运动模糊）：1.0 = 默认，>1 雨丝拖得更长更柔（慢快门感），<1 更短更利落。
+@export var trail_scale: float = 0.27:
+	set(value):
+		trail_scale = value
 		_apply_density()
 
 ## 区域包络的噪声扭曲幅度（像素）：让"区域边界"本身也不是直线/直角，而是有机形状。
@@ -80,16 +86,69 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 雨的整体强度（0~1）。所有层共用，统一控制。
-@export var density: float = 0.049:
+@export var density: float = 0.5:
 	set(value):
 		density = value
 		_apply_density()
 
 ## 雨丝的"实度 / 粗细"（0~1）：越大雨丝越粗越实，越小越纤细通透。
-@export var thickness: float = 0.849:
+@export var thickness: float = 1.0:
 	set(value):
 		thickness = value
 		_apply_density()
+
+## 雨的下落角度（度）。0 = 竖直下落；正值向右倾（受右侧来风影响），负值向左倾。
+## 角度只改变雨丝的倾斜表现，下落速度保持不变。
+@export_range(-75.0, 75.0, 0.5)
+var angle_deg: float = -7.0:
+	set(value):
+		angle_deg = value
+		_apply_angle()
+
+## 雨丝紊乱度（0~1）：让每条雨丝各自有不同的斜度 / 粗细 / 轻微弯曲，
+## 打破"整齐平行"的观感，越接近 1 越像真实风雨中的杂乱雨丝；0 = 整齐平行。
+@export_range(0.0, 1.0, 0.01)
+var chaos: float = 1.0:
+	set(value):
+		chaos = value
+		_apply_chaos()
+
+## 水珠头淡入系数（0~1）：0 = 纯雨丝（改造前行为），1 = 水珠头完全显现。
+## >0 时雨丝依旧存在，只是每条雨丝前端多出一个发亮的水珠头，补足“雨滴”观感。
+@export_range(0.0, 1.0, 0.01)
+var droplet: float = 1.0:
+	set(value):
+		droplet = value
+		_apply_droplets()
+
+## 水珠头大小（0~1）：越大珠头越粗。
+@export_range(0.0, 1.0, 0.01)
+var drop_size: float = 1.0:
+	set(value):
+		drop_size = value
+		_apply_droplets()
+
+## 水珠头纵向拉伸（0.1~1）：越小越接近正圆；约 0.22 可抵消“列宽/周期”在屏幕上的长宽比成正圆。
+@export_range(0.1, 1.0, 0.01)
+var drop_stretch: float = 1.0:
+	set(value):
+		drop_stretch = value
+		_apply_droplets()
+
+## 水珠头亮度（0.5~3）：>1 时比雨丝更亮，读起来像迎光的水珠。
+@export_range(0.5, 3.0, 0.01)
+var drop_brightness: float = 3.0:
+	set(value):
+		drop_brightness = value
+		_apply_droplets()
+
+## 下落速度倍率：1.0 = 默认速度，>1 更快，<1 更慢，0 = 静止（雨丝停住但强度不变）。
+## 仅缩放下落的时间推进速率，不改变雨势起伏、倾斜角与紊乱度。
+@export_range(0.0, 4.0, 0.01)
+var rain_speed: float = 1.2:
+	set(value):
+		rain_speed = value
+		_apply_speed()
 
 ## 雨的颜色。默认淡蓝（略带冷色，接近真实雨幕）。
 @export var rain_color: Color = Color(0.72, 0.82, 1.0):
@@ -153,6 +212,10 @@ func _ready() -> void:
 	_apply_region()
 	_apply_density()
 	_apply_color()
+	_apply_angle()
+	_apply_chaos()
+	_apply_droplets()
+	_apply_speed()
 	_apply_player_zone()
 	if activate_with_player and not Engine.is_editor_hint():
 		# 玩家开局就在区域内时 body_entered 的时序不可靠，延迟一帧对齐初值。
@@ -262,6 +325,7 @@ func _apply_density() -> void:
 		mat.set_shader_parameter(&"thickness", clampf(thickness, 0.0, 1.0))
 		mat.set_shader_parameter(&"coverage", clampf(coverage, 0.0, 1.0))
 		mat.set_shader_parameter(&"softness", clampf(softness, 0.01, 1.0))
+		mat.set_shader_parameter(&"trail_scale", maxf(trail_scale, 0.0))
 
 
 func _apply_color() -> void:
@@ -270,6 +334,45 @@ func _apply_color() -> void:
 		if mat == null:
 			continue
 		mat.set_shader_parameter(&"rain_color", rain_color)
+
+
+func _apply_angle() -> void:
+	var rad := deg_to_rad(angle_deg)
+	# 方向向量：竖直向下为 (0,1)，按角度旋转。x 取负号使正角度向右倾。
+	# 归一化保证长度恒为 1，下落速度（着色器里的 length(speed)）不受影响。
+	var dir := Vector2(-sin(rad), cos(rad)).normalized()
+	for rect in _color_rects():
+		var mat := rect.material as ShaderMaterial
+		if mat == null:
+			continue
+		mat.set_shader_parameter(&"speed", dir)
+
+
+func _apply_chaos() -> void:
+	for rect in _color_rects():
+		var mat := rect.material as ShaderMaterial
+		if mat == null:
+			continue
+		mat.set_shader_parameter(&"chaos", clampf(chaos, 0.0, 1.0))
+
+
+func _apply_droplets() -> void:
+	for rect in _color_rects():
+		var mat := rect.material as ShaderMaterial
+		if mat == null:
+			continue
+		mat.set_shader_parameter(&"droplet", clampf(droplet, 0.0, 1.0))
+		mat.set_shader_parameter(&"drop_size", clampf(drop_size, 0.0, 1.0))
+		mat.set_shader_parameter(&"drop_stretch", clampf(drop_stretch, 0.1, 1.0))
+		mat.set_shader_parameter(&"drop_brightness", maxf(drop_brightness, 0.5))
+
+
+func _apply_speed() -> void:
+	for rect in _color_rects():
+		var mat := rect.material as ShaderMaterial
+		if mat == null:
+			continue
+		mat.set_shader_parameter(&"fall_speed", maxf(rain_speed, 0.0))
 
 
 func _apply_region() -> void:

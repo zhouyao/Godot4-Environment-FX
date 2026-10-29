@@ -1,6 +1,6 @@
 @tool
 extends Node2D
-class_name Fog
+class_name FogParallax2D
 
 ## 玩家进入区域时发出（仅在 activate_with_player 打开时才会检测）。
 signal player_entered(zone: Node, player: Node2D)
@@ -38,13 +38,13 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 覆盖率：越低雾越浓越连贯，越高越稀、洞越多。边界的"破碎感"主要来自这里。
-@export var coverage: float = 0.18:
+@export var coverage: float = 0.22:
 	set(value):
 		coverage = value
 		_apply_region()
 
 ## 云边柔和度：越大边界越朦胧。
-@export var softness: float = 0.2:
+@export var softness: float = 1.0:
 	set(value):
 		softness = value
 		_apply_region()
@@ -80,7 +80,7 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 雾的整体浓度（0~1）。所有层共用，统一控制。
-@export var density: float = 0.049:
+@export var density: float = 0.23:
 	set(value):
 		density = value
 		_apply_density()

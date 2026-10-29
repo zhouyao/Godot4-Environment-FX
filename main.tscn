@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://bweyddcfks0gs"]
 
-[ext_resource type="Script" path="res://scenes/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" uid="uid://cr4hpsxxcim6d" path="res://scenes/main_menu.gd" id="1_menu"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=1167817435]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=1623641880]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,35 +20,35 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.07, 0.09, 0.15, 1)
 
-[node name="Title" type="Label" parent="."]
+[node name="Title" type="Label" parent="." unique_id=504709411]
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.25
 anchor_right = 0.5
 anchor_bottom = 0.25
 grow_horizontal = 2
 grow_vertical = 2
-text = "Godot4 FogFX 2D"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 48
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 48
+text = "Godot4-Environment-FX"
+horizontal_alignment = 1
 
-[node name="Subtitle" type="Label" parent="."]
+[node name="Subtitle" type="Label" parent="." unique_id=615574066]
 layout_mode = 1
-anchors_preset = 8
+anchors_preset = -1
 anchor_left = 0.5
 anchor_top = 0.34
 anchor_right = 0.5
 anchor_bottom = 0.34
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
+theme_override_font_sizes/font_size = 22
 text = "选择示例场景"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 22
-theme_override_colors/font_color = Color(0.6, 0.68, 0.8, 1)
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="VBox" type="VBoxContainer" parent="." unique_id=999030344]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -60,12 +60,14 @@ grow_vertical = 2
 theme_override_constants/separation = 24
 alignment = 1
 
-[node name="FogButton" type="Button" parent="VBox"]
+[node name="FogButton" type="Button" parent="VBox" unique_id=1207605943]
 layout_mode = 2
-min_size = Vector2(280, 64)
 text = "雾场景示例"
 
-[node name="RainButton" type="Button" parent="VBox"]
+[node name="RainButton" type="Button" parent="VBox" unique_id=870794896]
 layout_mode = 2
-min_size = Vector2(280, 64)
 text = "雨场景示例"
+
+[node name="SnowButton" type="Button" parent="VBox" unique_id=991122334]
+layout_mode = 2
+text = "雪场景示例"

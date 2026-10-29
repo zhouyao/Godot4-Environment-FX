@@ -9,12 +9,37 @@ extends Node2D
 
 
 const MAIN_MENU := "res://main.tscn"
+const FxParamHistory = preload("res://scenes/demo/param_history_store.gd")
+const ParamHistoryPanel = preload("res://scenes/demo/param_history_panel.gd")
+
+## 参数改动后的自动保存：用 0.5s 的防抖把最终值记成一条快照，避免拖动滑块时刷屏。
+const COMMIT_DELAY := 0.5
+
+var _history: RefCounted
+var _commit_timer: Timer
+var _control_map := {}
+var _ui_layer: CanvasLayer
+var _restoring := false
 
 func _ready() -> void:
+	_history = FxParamHistory.new("fog")
+	_commit_timer = Timer.new()
+	_commit_timer.wait_time = COMMIT_DELAY
+	_commit_timer.one_shot = true
+	add_child(_commit_timer)
+	_commit_timer.timeout.connect(_commit)
 	_build_ui()
+	# 重新打开时自动套用最近一次保存的参数，避免被场景默认值覆盖。
+	if _history.records.size() > 0:
+		_apply_params(_history.records[_history.records.size() - 1]["params"])
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
+		# 历史面板打开时，把 ESC 交给面板处理（关闭面板），不要直接回主菜单。
+		if _ui_layer != null:
+			for child in _ui_layer.get_children():
+				if child is ParamHistoryPanel:
+					return
 		get_tree().change_scene_to_file(MAIN_MENU)
 
 
@@ -22,6 +47,7 @@ func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 100
 	add_child(layer)
+	_ui_layer = layer
 
 	var panel := Panel.new()
 	panel.position = Vector2(16, 16)
@@ -58,26 +84,106 @@ func _build_ui() -> void:
 	_add_hint(vbox, "WASD / 方向键 移动角色。右侧雾区常驻显示；勾选「玩家进入淡入」后，走进去会再淡入到满。\n按 ESC 返回主菜单。")
 
 	# —— 全局氛围雾 ——
-	_add_checkbox(vbox, "氛围雾（全屏）", true, func(v: bool) -> void: fog_ambient.visible = v)
+	_add_checkbox(vbox, "氛围雾（全屏）", true, func(v: bool) -> void: fog_ambient.visible = v, "ambient_visible")
 	_add_slider(vbox, "氛围浓度", 0.0, 0.3, fog_ambient.density,
-		func(v: float) -> void: fog_ambient.density = v)
+		func(v: float) -> void: fog_ambient.density = v, "ambient_density")
 
 	# —— 区域雾（FogZone）——
 	_add_title(vbox, "区域雾 FogZone")
 	_add_checkbox(vbox, "区域限制", fog_zone.region_enabled,
-		func(v: bool) -> void: fog_zone.region_enabled = v)
+		func(v: bool) -> void: fog_zone.region_enabled = v, "region_enabled")
 	_add_checkbox(vbox, "椭圆包络", fog_zone.elliptical,
-		func(v: bool) -> void: fog_zone.elliptical = v)
+		func(v: bool) -> void: fog_zone.elliptical = v, "elliptical")
 	_add_checkbox(vbox, "玩家进入淡入", fog_zone.activate_with_player,
-		func(v: bool) -> void: fog_zone.activate_with_player = v)
+		func(v: bool) -> void: fog_zone.activate_with_player = v, "activate_with_player")
 	_add_slider(vbox, "浓度 density", 0.0, 1.0, fog_zone.density,
-		func(v: float) -> void: fog_zone.density = v)
+		func(v: float) -> void: fog_zone.density = v, "density")
 	_add_slider(vbox, "覆盖率 coverage", 0.0, 1.0, fog_zone.coverage,
-		func(v: float) -> void: fog_zone.coverage = v)
+		func(v: float) -> void: fog_zone.coverage = v, "coverage")
 	_add_slider(vbox, "柔边 softness", 0.01, 1.0, fog_zone.softness,
-		func(v: float) -> void: fog_zone.softness = v)
+		func(v: float) -> void: fog_zone.softness = v, "softness")
 	_add_color(vbox, "雾颜色", fog_zone.fog_color,
-		func(c: Color) -> void: fog_zone.fog_color = c)
+		func(c: Color) -> void: fog_zone.fog_color = c, "fog_color")
+
+	_add_hint(vbox, "提示：任意参数调整后都会自动保存；点「历史记录」可回看各次调整并恢复到当时状态。")
+	_add_history_button(vbox)
+
+
+func _add_history_button(parent: Control) -> void:
+	var history_button := Button.new()
+	history_button.text = "历史记录"
+	history_button.custom_minimum_size = Vector2(0, 36)
+	history_button.add_theme_font_size_override("font_size", 14)
+	history_button.add_theme_color_override("font_color", Color(0.9, 0.94, 1.0))
+	history_button.add_theme_stylebox_override("normal", _make_row_style(Color(0.18, 0.24, 0.34), Color(0, 0, 0, 0)))
+	history_button.add_theme_stylebox_override("hover", _make_row_style(Color(0.28, 0.4, 0.55), Color(0, 0, 0, 0)))
+	history_button.add_theme_stylebox_override("pressed", _make_row_style(Color(0.36, 0.74, 1.0, 0.5), Color(0, 0, 0, 0)))
+	history_button.add_theme_stylebox_override("focus", _make_row_style(Color(0, 0, 0, 0), Color(CHECK_ACCENT_COLOR, 0.55)))
+	history_button.pressed.connect(_open_history)
+	parent.add_child(history_button)
+
+
+## 收集当前所有关键参数（用于记录与恢复）。
+func _collect_params() -> Dictionary:
+	return {
+		"ambient_visible": fog_ambient.visible,
+		"ambient_density": fog_ambient.density,
+		"region_enabled": fog_zone.region_enabled,
+		"elliptical": fog_zone.elliptical,
+		"activate_with_player": fog_zone.activate_with_player,
+		"density": fog_zone.density,
+		"coverage": fog_zone.coverage,
+		"softness": fog_zone.softness,
+		"fog_color": fog_zone.fog_color,
+	}
+
+
+func _make_label(p: Dictionary) -> String:
+	return "氛围 %.2f · 密度 %.2f · 覆盖 %.2f · 柔边 %.2f%s" % [
+		p.get("ambient_density", 0.0),
+		p.get("density", 0.0),
+		p.get("coverage", 0.0),
+		p.get("softness", 0.0),
+		(" · 区域限制" if p.get("region_enabled", false) else ""),
+	]
+
+
+## 把一条记录写回：先同步到控件（会触发原回调写回节点），再同步到特效节点。
+func _apply_params(p: Dictionary) -> void:
+	_restoring = true
+	for key in p.keys():
+		if not _control_map.has(key):
+			continue
+		var ctl = _control_map[key]
+		var val = p[key]
+		if ctl is HSlider:
+			ctl.value = val
+		elif ctl is CheckBox:
+			ctl.button_pressed = val
+		elif ctl is ColorPickerButton:
+			ctl.color = val
+	_restoring = false
+
+
+func _open_history() -> void:
+	if _ui_layer == null:
+		return
+	var panel := ParamHistoryPanel.new(_history, _apply_params)
+	_ui_layer.add_child(panel)
+
+
+## 参数改动后用防抖合并成一条记录，避免拖动滑块时频繁写入。
+## 接受可选参数以兼容 signal 调用（toggled / value_changed 会传入值）。
+func _schedule_commit(_value = null) -> void:
+	if _restoring:
+		return
+	_commit_timer.start()
+
+
+func _commit() -> void:
+	if _history == null:
+		return
+	_history.record(_collect_params(), _make_label(_collect_params()))
 
 
 func _add_title(parent: Control, text: String) -> void:
@@ -104,7 +210,7 @@ const CHECK_ACCENT_COLOR := Color(0.36, 0.74, 1.0)
 static var _check_icon_cache: Dictionary = {}
 
 
-func _add_checkbox(parent: Control, label: String, value: bool, callback: Callable) -> void:
+func _add_checkbox(parent: Control, label: String, value: bool, callback: Callable, key := "") -> void:
 	var cb := CheckBox.new()
 	cb.text = label
 	cb.button_pressed = value
@@ -123,6 +229,9 @@ func _add_checkbox(parent: Control, label: String, value: bool, callback: Callab
 	cb.add_theme_stylebox_override("focus", _make_row_style(Color(0, 0, 0, 0), Color(CHECK_ACCENT_COLOR, 0.55)))
 
 	cb.toggled.connect(callback)
+	cb.toggled.connect(_schedule_commit)
+	if key != "":
+		_control_map[key] = cb
 	parent.add_child(cb)
 
 
@@ -204,7 +313,7 @@ const SLIDER_GRABBER_COLOR := Color(0.95, 0.98, 1.0)
 static var _grabber_texture: GradientTexture2D
 
 
-func _add_slider(parent: Control, label: String, minv: float, maxv: float, value: float, callback: Callable) -> void:
+func _add_slider(parent: Control, label: String, minv: float, maxv: float, value: float, callback: Callable, key := "") -> void:
 	var hb := HBoxContainer.new()
 	hb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_theme_constant_override("separation", 8)
@@ -257,6 +366,7 @@ func _add_slider(parent: Control, label: String, minv: float, maxv: float, value
 	slider.add_theme_icon_override("grabber_highlight", _get_grabber_texture())
 
 	slider.value_changed.connect(callback)
+	slider.value_changed.connect(_schedule_commit)
 	hb.add_child(slider)
 
 	# 数值
@@ -269,6 +379,8 @@ func _add_slider(parent: Control, label: String, minv: float, maxv: float, value
 	slider.value_changed.connect(func(v: float) -> void: value_label.text = "%.2f" % v)
 	hb.add_child(value_label)
 
+	if key != "":
+		_control_map[key] = slider
 	parent.add_child(hb)
 
 
@@ -292,7 +404,7 @@ func _get_grabber_texture() -> GradientTexture2D:
 	return _grabber_texture
 
 
-func _add_color(parent: Control, label: String, value: Color, callback: Callable) -> void:
+func _add_color(parent: Control, label: String, value: Color, callback: Callable, key := "") -> void:
 	var hb := HBoxContainer.new()
 
 	var label_node := Label.new()
@@ -305,6 +417,9 @@ func _add_color(parent: Control, label: String, value: Color, callback: Callable
 	picker.color = value
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	picker.color_changed.connect(callback)
+	picker.color_changed.connect(_schedule_commit)
 	hb.add_child(picker)
 
+	if key != "":
+		_control_map[key] = picker
 	parent.add_child(hb)

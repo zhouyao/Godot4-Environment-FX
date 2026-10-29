@@ -7,14 +7,33 @@ shader_type canvas_item;
 uniform vec3 rain_color = vec3(0.72, 0.82, 1.0);
 // 雨的整体强度（0~1）。所有层共用，统一控制。
 uniform float density: hint_range(0.0, 1.0) = 0.25;
-// 下落方向 × 速度（x 分量为风力，默认竖直下落）
+// 下落方向（单位向量，由 Rain.angle_deg 写入；默认竖直向下 (0,1)）。
+// 仅表示方向，长度恒为 1，不影响下落速度。
 uniform vec2 speed = vec2(0.0, 1.0);
+// 下落速度倍率（由 Rain.rain_speed 写入；1.0 = 默认，>1 更快，<1 更慢，0 = 静止）。
+// 只缩放时间推进速率，不改变雨势起伏与倾斜表现。
+uniform float fall_speed: hint_range(0.0, 4.0) = 1.0;
 // 雨丝的"实度 / 粗细"（0~1）：越大雨丝越粗越实
 uniform float thickness: hint_range(0.0, 1.0) = 0.85;
 // 覆盖率：落雨的列占比（0 = 无雨，1 = 全部列落雨）
 uniform float coverage: hint_range(0.0, 1.0) = 0.18;
 // 雨丝柔边：越大雨丝边缘越朦胧
 uniform float softness: hint_range(0.01, 1.0) = 0.2;
+// 紊乱度（0~1）：让每条雨丝各自有不同的斜度 / 粗细 / 轻微弯曲，
+// 打破"整齐平行"的观感；0 = 整齐平行，越接近 1 越像真实风雨中的杂乱雨丝
+uniform float chaos: hint_range(0.0, 1.0) = 0.0;
+// 拖影长度倍率（运动模糊）：1.0 = 默认，>1 雨丝拖得更长更柔（慢快门感），<1 更短更利落
+uniform float trail_scale: hint_range(0.2, 3.0) = 1.0;
+
+// —— 水珠头：圆润发亮的水滴头，骑在雨丝前端，补足“雨滴”观感（不破坏平行/平铺） ——
+// 整体淡入系数：0 = 纯雨丝（改造前行为），1 = 水珠头完全显现；>0 时雨丝依旧存在，只是前端多出亮珠。
+uniform float droplet: hint_range(0.0, 1.0) = 0.6;
+// 水珠头大小（列宽分数）：越大珠头越粗。
+uniform float drop_size: hint_range(0.0, 1.0) = 0.5;
+// 纵向拉伸：越小水珠头越接近正圆（抵消“列宽 vs 周期”在屏幕上的长宽比，约 0.22 为正圆）。
+uniform float drop_stretch: hint_range(0.1, 1.0) = 0.25;
+// 水珠头亮度：>1 时比雨丝更亮，读起来像迎光的水珠。
+uniform float drop_brightness: hint_range(0.5, 3.0) = 1.6;
 
 // 区域限制：region_enabled = false 时行为与无区域一致
 uniform bool region_enabled = false;
@@ -72,27 +91,95 @@ float rain_layer(vec2 uv, float columns, float period, float t, float seed) {
 		return 0.0;
 	}
 
+	// 紊乱度：让每条雨丝各自有不同的斜度与粗细，打破"整齐平行"的观感
+	float jx = hash21(vec2(col, seed + 31.7));
+	float col_tilt = (jx - 0.5) * chaos * 0.7;          // 每条雨丝各自的微小斜度
+	float thick_j = mix(1.0, 0.45 + 0.55 * jx, chaos);  // 粗细随机扰动
+
 	// 雨丝在列内的水平位置（居中 ±0.35，不会跨到相邻列）
 	float xoff = (hash21(vec2(col, seed + 11.3)) - 0.5) * 0.7;
-	float dx = abs(fx - (0.5 + xoff));
+	float phase = hash21(vec2(col, seed + 2.9));
+	// 每列速度分布更宽（真实雨滴速度并不一致）
+	float spd = 0.55 + 0.9 * hash21(vec2(col, seed + 7.3));   // ~0.55..1.45
+	float fall = spd * (0.6 + rnd * 0.8);
+	float fy = fract(uv.y * period - t * fall + phase);
+
+	// 沿雨丝方向的横向扰动（随下落相位流动；整数周期保证平铺无缝）
+	float wave = sin((uv.y * period - t * fall + phase) * 2.0 * PI) * chaos * 0.05;
+
+	// 雨丝中心随纵向位置偏移 → 雨丝呈斜向 / 轻微弯曲，而非笔直
+	float center_x = 0.5 + xoff + col_tilt * (fy - 0.5) + wave;
+	float dx = abs(fx - center_x);
 	// 雨丝半宽：thickness 越大越粗（0.008~0.05 列宽）
-	float halfw = mix(0.008, 0.05, thickness);
+	float halfw = mix(0.008, 0.05, clamp(thickness * thick_j, 0.0, 1.0));
 	float edge = max(softness * 0.06, 0.001);
 	float line = 1.0 - smoothstep(halfw, halfw + edge, dx);
 
-	// 每条雨丝的长度与下落相位（只依赖列，保证纵向无缝）
-	float len = mix(0.25, 0.9, hash21(vec2(col, seed + 5.7)));
-	float phase = hash21(vec2(col, seed + 2.9));
-	float fall = 0.6 + rnd * 0.8;
-	float fy = fract(uv.y * period - t * fall + phase);
-	// fy 接近 len 的一端逐渐变淡 = 雨丝尾迹
-	float fade = mix(0.05, 0.3, thickness);
-	float drop = 1.0 - smoothstep(len - fade, len, fy);
+	// —— 运动模糊：雨丝头部最亮，向尾部指数衰减；头部前方几乎不可见 ——
+	float len = mix(0.3, 0.95, hash21(vec2(col, seed + 5.7)));
+	float trail = mix(0.12, 0.55, spd) * trail_scale; // 速度 → 拖尾长度（可被 trail_scale 整体缩放）
+	float behind = len - fy;                       // >0 表示在头部之后的拖尾区
+	float motion = exp(-max(behind, 0.0) / trail); // 指数拖尾
+	motion *= smoothstep(-0.03, 0.0, behind);      // 头部前方快速归零
 
 	// 内部浓淡起伏：让雨不是均匀一片
 	float dv = mix(1.0 - density_variation, 1.0, hash21(vec2(col, seed + 9.1)));
 
-	return line * drop * dv;
+	// 速度 → 整体亮度（快滴更亮，符合人眼对高速运动的感知）
+	return line * motion * dv * mix(0.7, 1.3, clamp(spd - 0.55, 0.0, 0.9));
+}
+
+// 水珠头：在每条已落雨的列（与 rain_layer 共用同一列决策，绝不串列）的“前端”画一个
+// 圆润发亮的水滴头 + 一截极短拖尾。只依赖“列”与整数周期，跨 Parallax 平铺天然无缝。
+// 与 rain_layer 共用同一套 xoff/phase/spd/fall/len，因此水珠头严格骑在对应雨丝的亮头上，
+// 不会随时间漂移（雨丝亮头在 fy≈len 处，水珠头中心也在 fy≈len）。
+float rain_head(vec2 uv, float columns, float period, float t, float seed) {
+	float colf = uv.x * columns;
+	float col = floor(colf);
+	float fx = fract(colf);
+
+	// 与 rain_layer 完全一致的列决策，保证水珠头只出现在有雨丝的列上
+	float rnd = hash21(vec2(col, seed));
+	if (rnd > coverage) {
+		return 0.0;
+	}
+
+	float xoff = (hash21(vec2(col, seed + 11.3)) - 0.5) * 0.7;
+	float phase = hash21(vec2(col, seed + 2.9));
+	// 与 rain_layer 完全一致的每列速度，保证水珠头与雨丝亮头严格同步（不漂移）
+	float spd = 0.55 + 0.9 * hash21(vec2(col, seed + 7.3));
+	float fall = spd * (0.6 + rnd * 0.8);
+	float fy = fract(uv.y * period - t * fall + phase);
+	float len = mix(0.3, 0.95, hash21(vec2(col, seed + 5.7)));
+
+	// 复用 rain_layer 的紊乱度偏移，使水珠头在高 chaos 时仍贴合弯曲/倾斜的雨丝
+	float jx = hash21(vec2(col, seed + 31.7));
+	float col_tilt = (jx - 0.5) * chaos * 0.7;
+	float wave = sin((uv.y * period - t * fall + phase) * 2.0 * PI) * chaos * 0.05;
+
+	// 以雨丝前导端（fy≈len）为水珠头中心；dy<0 在头之上（拖尾方向）
+	float center_x = 0.5 + xoff + col_tilt * (fy - 0.5) + wave;
+	float dx = fx - center_x;
+	float dy = fy - len;
+
+	// 圆润水珠头：用归一化距离画一个近圆亮块（纵向按 drop_stretch 缩放成水滴形）
+	float hr = mix(0.02, 0.06, clamp(drop_size, 0.0, 1.0));
+	vec2 p = vec2(dx, dy) / (hr * vec2(1.0, drop_stretch));
+	float r = length(p);                          // 0=中心, 1=边缘
+	float body = 1.0 - smoothstep(0.7, 1.0, r);  // 珠体
+
+	// 受光高光：朝光源方向偏移的小亮斑（默认左上）
+	vec2 L = normalize(vec2(-0.5, -0.6));
+	float spec = (1.0 - smoothstep(0.0, 0.35, length(p - L * 0.45))) * 1.8;
+
+	// 菲涅尔暗边：边缘比中心暗，读起来像透明水珠而非白点
+	float rim = body * (0.4 + 0.6 * smoothstep(0.6, 1.0, r));
+
+	float head = (rim * 0.5 + spec) * drop_brightness;
+	// 极短拖尾：朝雨丝方向（dy<0，头之上）渐隐，强化“滴”而不是孤立的“点”
+	float tail = (1.0 - smoothstep(0.0, 0.25, -dy)) * (1.0 - smoothstep(hr, hr + 0.01, abs(dx))) * 0.4;
+
+	return max(head, tail) * body;
 }
 
 void vertex() {
@@ -101,16 +188,26 @@ void vertex() {
 }
 
 void fragment() {
-	// wind: speed.x 让雨丝整体倾斜（默认 0，竖直下落）
-	float tilt = clamp(speed.x, -1.0, 1.0) * 0.4;
+	// 倾斜由 Rain.angle_deg 通过 speed（单位方向向量）驱动；去掉 0.4 上限，让角度真正生效。
+	// speed 归一化后长度恒为 1，下落速度（t）保持不变，保证多层 Parallax 平铺无缝。
+	float tilt = clamp(speed.x / max(speed.y, 0.001), -4.0, 4.0);
 	vec2 uv = vec2(UV.x + UV.y * tilt, UV.y);
 
-	float t = TIME * (0.5 + length(speed));
+	float t = TIME * (0.5 + length(speed)) * fall_speed;
 	// 三层不同密度的雨丝叠出景深（近处更粗更亮、远处更细更淡）
-	float rain = 0.0;
-	rain += rain_layer(uv, 64.0, 10.0, t, edge_seed) * 0.55;
-	rain += rain_layer(uv, 128.0, 16.0, t * 1.3, edge_seed + 17.0) * 1.0;
-	rain += rain_layer(uv, 192.0, 22.0, t * 1.7, edge_seed + 41.0) * 0.5;
+	float threads = 0.0;
+	threads += rain_layer(uv, 64.0, 10.0, t, edge_seed) * 0.55;
+	threads += rain_layer(uv, 128.0, 16.0, t * 1.3, edge_seed + 17.0) * 1.0;
+	threads += rain_layer(uv, 192.0, 22.0, t * 1.7, edge_seed + 41.0) * 0.5;
+
+	// 同结构三层水珠头：与雨丝共用列决策，自然骑在每条雨丝前端
+	float drops = 0.0;
+	drops += rain_head(uv, 64.0, 10.0, t, edge_seed) * 0.55;
+	drops += rain_head(uv, 128.0, 16.0, t * 1.3, edge_seed + 17.0) * 1.0;
+	drops += rain_head(uv, 192.0, 22.0, t * 1.7, edge_seed + 41.0) * 0.5;
+
+	// 雨丝始终存在；水珠头以 droplet 系数淡入，并用 max 压在雨丝之上（头部更亮）
+	float rain = max(threads, drops * droplet);
 
 	float mask = 1.0;
 
