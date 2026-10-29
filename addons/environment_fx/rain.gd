@@ -7,6 +7,7 @@ signal player_entered(zone: Node, player: Node2D)
 ## 玩家离开区域时发出（仅在 activate_with_player 打开时才会检测）。
 signal player_exited(zone: Node, player: Node2D)
 
+@export_group("区域 Region")
 ## 雨生效的区域尺寸（像素）。centered = true 时节点原点为区域中心，否则为左上角。
 @export var size: Vector2 = Vector2(1920, 1080):
 	set(value):
@@ -20,7 +21,7 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 区域开关。false = 全屏显示（改造前的默认行为）。
-@export var region_enabled: bool = false:
+@export var region_enabled: bool = true:
 	set(value):
 		region_enabled = value
 		_apply_region()
@@ -31,34 +32,17 @@ signal player_exited(zone: Node, player: Node2D)
 		region_fade = value
 		_apply_region()
 
+@export_subgroup("包络形状 Envelope")
 ## 阵势尺度：越小云团越大（默认 0.0016 ≈ 625px 一团）。决定雨势起伏的破碎程度。
 @export var cloud_noise_scale: float = 0.0016:
 	set(value):
 		cloud_noise_scale = value
 		_apply_region()
 
-## 覆盖率：落雨的列占比。0 = 无雨，1 = 全部列落雨。
-@export var coverage: float = 0.32:
+## true = 椭圆包络（没有直边和直角），false = 矩形包络。
+@export var elliptical: bool = false:
 	set(value):
-		coverage = value
-		_apply_density()
-
-## 雨丝柔和度：越大雨丝边缘越朦胧。
-@export var softness: float = 1.0:
-	set(value):
-		softness = value
-		_apply_density()
-
-## 拖影长度倍率（运动模糊）：1.0 = 默认，>1 雨丝拖得更长更柔（慢快门感），<1 更短更利落。
-@export var trail_scale: float = 0.27:
-	set(value):
-		trail_scale = value
-		_apply_density()
-
-## 区域包络的噪声扭曲幅度（像素）：让"区域边界"本身也不是直线/直角，而是有机形状。
-@export var edge_noise: float = 320.0:
-	set(value):
-		edge_noise = value
+		elliptical = value
 		_apply_region()
 
 ## 内部浓淡起伏：让雨不是均匀一片，更像真实阵雨。
@@ -67,10 +51,10 @@ signal player_exited(zone: Node, player: Node2D)
 		density_variation = value
 		_apply_region()
 
-## true = 椭圆包络（没有直边和直角），false = 矩形包络。
-@export var elliptical: bool = false:
+## 区域包络的噪声扭曲幅度（像素）：让"区域边界"本身也不是直线/直角，而是有机形状。
+@export var edge_noise: float = 320.0:
 	set(value):
-		elliptical = value
+		edge_noise = value
 		_apply_region()
 
 ## 几何边缘渐隐（UV 比例 0~0.5）：把 ColorRect / Parallax 平铺接缝的硬边抹掉，避免"层边缘的直线"。
@@ -85,6 +69,19 @@ signal player_exited(zone: Node, player: Node2D)
 		edge_gamma = value
 		_apply_region()
 
+@export_group("密度 Density")
+## 覆盖率：落雨的列占比。0 = 无雨，1 = 全部列落雨。
+@export var coverage: float = 0.32:
+	set(value):
+		coverage = value
+		_apply_density()
+
+## 雨丝柔和度：越大雨丝边缘越朦胧。
+@export var softness: float = 1.0:
+	set(value):
+		softness = value
+		_apply_density()
+
 ## 雨的整体强度（0~1）。所有层共用，统一控制。
 @export var density: float = 0.5:
 	set(value):
@@ -95,6 +92,13 @@ signal player_exited(zone: Node, player: Node2D)
 @export var thickness: float = 1.0:
 	set(value):
 		thickness = value
+		_apply_density()
+
+@export_group("运动 Motion")
+## 拖影长度倍率（运动模糊）：1.0 = 默认，>1 雨丝拖得更长更柔（慢快门感），<1 更短更利落。
+@export var trail_scale: float = 0.27:
+	set(value):
+		trail_scale = value
 		_apply_density()
 
 ## 雨的下落角度（度）。0 = 竖直下落；正值向右倾（受右侧来风影响），负值向左倾。
@@ -113,6 +117,15 @@ var chaos: float = 1.0:
 		chaos = value
 		_apply_chaos()
 
+## 下落速度倍率：1.0 = 默认速度，>1 更快，<1 更慢，0 = 静止（雨丝停住但强度不变）。
+## 仅缩放下落的时间推进速率，不改变雨势起伏、倾斜角与紊乱度。
+@export_range(0.0, 4.0, 0.01)
+var rain_speed: float = 1.2:
+	set(value):
+		rain_speed = value
+		_apply_speed()
+
+@export_group("水珠 Droplets")
 ## 水珠头淡入系数（0~1）：0 = 纯雨丝（改造前行为），1 = 水珠头完全显现。
 ## >0 时雨丝依旧存在，只是每条雨丝前端多出一个发亮的水珠头，补足“雨滴”观感。
 @export_range(0.0, 1.0, 0.01)
@@ -142,20 +155,14 @@ var drop_brightness: float = 3.0:
 		drop_brightness = value
 		_apply_droplets()
 
-## 下落速度倍率：1.0 = 默认速度，>1 更快，<1 更慢，0 = 静止（雨丝停住但强度不变）。
-## 仅缩放下落的时间推进速率，不改变雨势起伏、倾斜角与紊乱度。
-@export_range(0.0, 4.0, 0.01)
-var rain_speed: float = 1.2:
-	set(value):
-		rain_speed = value
-		_apply_speed()
-
+@export_group("外观 Appearance")
 ## 雨的颜色。默认淡蓝（略带冷色，接近真实雨幕）。
 @export var rain_color: Color = Color(0.72, 0.82, 1.0):
 	set(value):
 		rain_color = value
 		_apply_color()
 
+@export_group("玩家触发 Player Zone")
 ## 玩家进入区域才淡入、离开则淡出。false = 常驻显示（仅受区域遮罩限制）。
 @export var activate_with_player: bool = false:
 	set(value):
@@ -165,6 +172,7 @@ var rain_speed: float = 1.2:
 ## 淡入 / 淡出时长（秒）。
 @export var fade_duration: float = 1.0
 
+@export_group("视差 Parallax")
 ## 叠加层数与各层的视差倍率：数组长度 = 启用的层数（上限 = 场景里的层节点数）。
 ## 默认 1 层，改造前关卡里多个雨节点叠加的效果完全不受影响；
 ## 想让单个雨节点自带景深就填多个值，例如关卡里原来那 4 层：
@@ -180,6 +188,7 @@ var rain_speed: float = 1.2:
 		scroll_scale = value
 		_apply_layers()
 
+@export_group("渲染 Render")
 ## 绘制层级（写入 z_index）。两种用法：
 ##  · 前景遮罩：盖住玩家/敌人/掉落物 → 设成 > Pickup.draw_z 的值（建议 100）。
 ##  · 纯背景：沉到所有物体最后面        → 设成负数（建议 -10）。
@@ -280,8 +289,9 @@ func _ensure_unique_material() -> void:
 
 
 ## 多层时给每层拆一份材质，这样每层的边界扰动可以各自错开（单层时没必要，保持共享）。
-func _split_layer_materials() -> void:
-	if _per_layer_material or _layers.size() < 2:
+## count = 实际启用的层数，只有 >= 2 层才拆分。拆开后不再合并回去（无损，只是多几份副本）。
+func _split_layer_materials(count: int) -> void:
+	if _per_layer_material or count < 2:
 		return
 	var base: Material = null
 	for rect in _color_rects():
@@ -300,15 +310,20 @@ func _split_layer_materials() -> void:
 func _apply_layers() -> void:
 	if _layers.is_empty():
 		return
-	_split_layer_materials()
 	var count := mini(maxi(layer_scales.size(), 1), _layers.size())
+	_split_layer_materials(count)
 	for i in _layers.size():
 		var layer_scale := Vector2.ONE
 		if not layer_scales.is_empty():
 			layer_scale = layer_scales[mini(i, layer_scales.size() - 1)]
 		_layers[i].visible = i < count
 		_layers[i].scroll_scale = layer_scale * scroll_scale
-		# 每层边界错开：否则多层会在同一位置叠出一条硬边
+		if i >= count:
+			continue
+		# 每层边界错开：否则多层会在同一位置叠出一条硬边。
+		# 材质共享时（单层）只写第一层，否则后面几层的写入会覆盖同一份材质。
+		if not _per_layer_material and i > 0:
+			continue
 		var rect := _layers[i].get_node_or_null("ColorRect") as ColorRect
 		if rect != null:
 			var mat := rect.material as ShaderMaterial

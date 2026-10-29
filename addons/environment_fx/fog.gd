@@ -7,6 +7,7 @@ signal player_entered(zone: Node, player: Node2D)
 ## 玩家离开区域时发出（仅在 activate_with_player 打开时才会检测）。
 signal player_exited(zone: Node, player: Node2D)
 
+@export_group("区域 Region")
 ## 雾生效的区域尺寸（像素）。centered = true 时节点原点为区域中心，否则为左上角。
 @export var size: Vector2 = Vector2(1920, 1080):
 	set(value):
@@ -20,7 +21,7 @@ signal player_exited(zone: Node, player: Node2D)
 		_apply_region()
 
 ## 区域开关。false = 全屏显示（改造前的默认行为）。
-@export var region_enabled: bool = false:
+@export var region_enabled: bool = true:
 	set(value):
 		region_enabled = value
 		_apply_region()
@@ -31,10 +32,17 @@ signal player_exited(zone: Node, player: Node2D)
 		region_fade = value
 		_apply_region()
 
+@export_subgroup("包络形状 Envelope")
 ## 云团尺度：越小云团越大（默认 0.0016 ≈ 625px 一团）。决定雾边缘的破碎程度。
 @export var cloud_noise_scale: float = 0.0016:
 	set(value):
 		cloud_noise_scale = value
+		_apply_region()
+
+## true = 椭圆包络（没有直边和直角），false = 矩形包络。
+@export var elliptical: bool = false:
+	set(value):
+		elliptical = value
 		_apply_region()
 
 ## 覆盖率：越低雾越浓越连贯，越高越稀、洞越多。边界的"破碎感"主要来自这里。
@@ -49,22 +57,16 @@ signal player_exited(zone: Node, player: Node2D)
 		softness = value
 		_apply_region()
 
-## 区域包络的噪声扭曲幅度（像素）：让"区域边界"本身也不是直线/直角，而是有机形状。
-@export var edge_noise: float = 320.0:
-	set(value):
-		edge_noise = value
-		_apply_region()
-
 ## 内部浓淡起伏：让雾不是一片死白，更像真实浓雾。
 @export var density_variation: float = 0.3:
 	set(value):
 		density_variation = value
 		_apply_region()
 
-## true = 椭圆包络（没有直边和直角），false = 矩形包络。
-@export var elliptical: bool = false:
+## 区域包络的噪声扭曲幅度（像素）：让"区域边界"本身也不是直线/直角，而是有机形状。
+@export var edge_noise: float = 320.0:
 	set(value):
-		elliptical = value
+		edge_noise = value
 		_apply_region()
 
 ## 几何边缘渐隐（UV 比例 0~0.5）：把 ColorRect / Parallax 平铺接缝的硬边抹掉，避免"层边缘的直线"。
@@ -79,6 +81,7 @@ signal player_exited(zone: Node, player: Node2D)
 		edge_gamma = value
 		_apply_region()
 
+@export_group("浓度 Density")
 ## 雾的整体浓度（0~1）。所有层共用，统一控制。
 @export var density: float = 0.23:
 	set(value):
@@ -91,12 +94,14 @@ signal player_exited(zone: Node, player: Node2D)
 		thickness = value
 		_apply_density()
 
+@export_group("外观 Appearance")
 ## 雾的颜色。默认白色（无染色）。
 @export var fog_color: Color = Color.WHITE:
 	set(value):
 		fog_color = value
 		_apply_color()
 
+@export_group("玩家触发 Player Zone")
 ## 玩家进入区域才淡入、离开则淡出。false = 常驻显示（仅受区域遮罩限制）。
 @export var activate_with_player: bool = false:
 	set(value):
@@ -106,6 +111,7 @@ signal player_exited(zone: Node, player: Node2D)
 ## 淡入 / 淡出时长（秒）。
 @export var fade_duration: float = 1.0
 
+@export_group("视差 Parallax")
 ## 叠加层数与各层的视差倍率：数组长度 = 启用的层数（上限 = 场景里的层节点数）。
 ## 默认 1 层，改造前关卡里多个雾节点叠加的效果完全不受影响；
 ## 想让单个雾节点自带景深就填多个值，例如关卡里原来那 4 层：
@@ -121,6 +127,7 @@ signal player_exited(zone: Node, player: Node2D)
 		scroll_scale = value
 		_apply_layers()
 
+@export_group("渲染 Render")
 ## 绘制层级（写入 z_index）。两种用法：
 ##  · 前景遮罩：盖住玩家/敌人/掉落物 → 设成 > Pickup.draw_z 的值（建议 100）。
 ##  · 纯背景：沉到所有物体最后面        → 设成负数（建议 -10）。
@@ -218,8 +225,9 @@ func _ensure_unique_material() -> void:
 
 
 ## 多层时给每层拆一份材质，这样每层的边界扰动可以各自错开（单层时没必要，保持共享）。
-func _split_layer_materials() -> void:
-	if _per_layer_material or _layers.size() < 2:
+## count = 实际启用的层数，只有 >= 2 层才拆分。拆开后不再合并回去（无损，只是多几份副本）。
+func _split_layer_materials(count: int) -> void:
+	if _per_layer_material or count < 2:
 		return
 	var base: Material = null
 	for rect in _color_rects():
@@ -238,15 +246,20 @@ func _split_layer_materials() -> void:
 func _apply_layers() -> void:
 	if _layers.is_empty():
 		return
-	_split_layer_materials()
 	var count := mini(maxi(layer_scales.size(), 1), _layers.size())
+	_split_layer_materials(count)
 	for i in _layers.size():
 		var layer_scale := Vector2.ONE
 		if not layer_scales.is_empty():
 			layer_scale = layer_scales[mini(i, layer_scales.size() - 1)]
 		_layers[i].visible = i < count
 		_layers[i].scroll_scale = layer_scale * scroll_scale
-		# 每层边界错开：否则多层会在同一位置叠出一条硬边
+		if i >= count:
+			continue
+		# 每层边界错开：否则多层会在同一位置叠出一条硬边。
+		# 材质共享时（单层）只写第一层，否则后面几层的写入会覆盖同一份材质。
+		if not _per_layer_material and i > 0:
+			continue
 		var rect := _layers[i].get_node_or_null("ColorRect") as ColorRect
 		if rect != null:
 			var mat := rect.material as ShaderMaterial
